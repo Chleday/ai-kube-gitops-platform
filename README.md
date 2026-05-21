@@ -175,6 +175,52 @@ Kubernetes 연결 포인트:
 
 관리 UI를 인터넷에 직접 노출하지 않는 것을 원칙으로 합니다.
 
+
+## AI Agent CLI
+
+이 프로젝트에는 포트폴리오용 안전한 AI 에이전트 CLI가 포함되어 있습니다.
+
+위치:
+
+```text
+agent/gitops_agent.py
+```
+
+특징:
+
+- 자연어 요청을 사전 정의된 intent로 분류
+- AI가 임의의 shell command를 생성/실행하지 않음
+- allowlist에 있는 Kubernetes/GitOps action만 실행
+- 기본은 dry-run, 실제 실행은 `--execute` 필요
+- secret 값은 읽거나 출력하지 않음
+
+예시:
+
+```bash
+python3 agent/gitops_agent.py ask "클러스터 상태 확인해줘"
+python3 agent/gitops_agent.py ask "yaml 검사해줘" --execute
+python3 agent/gitops_agent.py ask "Argo CD UI 열어줘"
+python3 agent/gitops_agent.py open argocd --execute
+python3 agent/gitops_agent.py secrets
+```
+
+지원 intent:
+
+- `check_status`
+- `validate_repo`
+- `open_argocd`
+- `open_nginx_demo`
+- `show_secrets_policy`
+- `show_bootstrap_steps`
+- `show_troubleshooting`
+- `list_apps`
+
+자세한 내용:
+
+```text
+agent/README.md
+```
+
 ## Validation
 
 ```bash
