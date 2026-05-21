@@ -23,5 +23,5 @@ uvicorn app.main:app --reload
 ## Container build
 
 ```bash
-docker build -t ghcr.io/YOUR_USERNAME/kube-gitops-fastapi-demo:0.1.0 .
+docker build -t ghcr.io/chleday/kube-gitops-fastapi-demo:0.1.0 .
 ```
