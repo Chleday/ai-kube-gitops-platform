@@ -178,7 +178,7 @@ Kubernetes 연결 포인트:
 
 ## AI Agent CLI
 
-이 프로젝트에는 포트폴리오용 안전한 AI 에이전트 CLI가 포함되어 있습니다.
+이 프로젝트에는 포트폴리오용 안전한 AI 에이전트 CLI/Web UI가 포함되어 있습니다.
 
 위치:
 
@@ -199,9 +199,16 @@ agent/gitops_agent.py
 ```bash
 python3 agent/gitops_agent.py ask "클러스터 상태 확인해줘"
 python3 agent/gitops_agent.py ask "yaml 검사해줘" --execute
-python3 agent/gitops_agent.py ask "Argo CD UI 열어줘"
+python3 agent/gitops_agent.py ask "Argo CD UI 열어줘" --llm
 python3 agent/gitops_agent.py open argocd --execute
 python3 agent/gitops_agent.py secrets
+uvicorn agent.web_ui:app --reload --port 8090
+```
+
+Web UI:
+
+```text
+http://127.0.0.1:8090
 ```
 
 지원 intent:

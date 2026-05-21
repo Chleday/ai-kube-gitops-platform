@@ -11,14 +11,27 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import os
 import re
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 from typing import Callable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ALLOWED_INTENTS = {
+    "check_status",
+    "validate_repo",
+    "open_argocd",
+    "open_nginx_demo",
+    "show_secrets_policy",
+    "show_bootstrap_steps",
+    "show_troubleshooting",
+    "list_apps",
+    "help",
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -69,6 +82,59 @@ def classify(text: str) -> str:
         return "list_apps"
 
     return "help"
+
+
+def build_llm_prompt(user_text: str) -> str:
+    intents = ", ".join(sorted(ALLOWED_INTENTS - {"help"}))
+    return (
+        "You are a safe GitOps Kubernetes intent classifier. "
+        "Return JSON only, with this exact shape: "
+        '{"intent":"one_allowed_intent","arguments":{}}. '
+        f"Allowed intents: {intents}. "
+        "Never return shell commands, secrets, tokens, explanations, markdown, or extra keys. "
+        f"User request: {user_text}"
+    )
+
+
+def parse_llm_intent(raw: str) -> str:
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise IntentError(f"Invalid LLM JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise IntentError("Invalid LLM JSON: root must be an object")
+    intent = payload.get("intent")
+    if not isinstance(intent, str):
+        raise IntentError("Invalid LLM JSON: intent must be a string")
+    if intent not in ALLOWED_INTENTS:
+        raise IntentError(f"Unsupported LLM intent: {intent}")
+    return intent
+
+
+def classify_with_llm(text: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    if not api_key:
+        raise IntentError("OPENAI_API_KEY is not set")
+    body = json.dumps(
+        {
+            "model": model,
+            "messages": [{"role": "user", "content": build_llm_prompt(text)}],
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        }
+    ).encode()
+    req = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as response:
+        data = json.loads(response.read().decode())
+    content = data["choices"][0]["message"]["content"]
+    return parse_llm_intent(content)
 
 
 def build_result(intent: str) -> AgentResult:
@@ -178,7 +244,15 @@ def print_result(result: AgentResult, execute: bool) -> int:
 
 
 def ask(args: argparse.Namespace) -> int:
-    intent = classify(args.text)
+    if args.llm:
+        try:
+            intent = classify_with_llm(args.text)
+        except IntentError as exc:
+            print(f"LLM classification failed: {exc}", file=sys.stderr)
+            print("Falling back to rule-based classifier.", file=sys.stderr)
+            intent = classify(args.text)
+    else:
+        intent = classify(args.text)
     return print_result(build_result(intent), execute=args.execute)
 
 
@@ -193,6 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ask = sub.add_parser("ask", help="Map natural language to a safe intent")
     p_ask.add_argument("text")
     p_ask.add_argument("--execute", action="store_true")
+    p_ask.add_argument("--llm", action="store_true", help="Use OpenAI-compatible API for intent classification, then validate allowlist")
     p_ask.set_defaults(func=ask)
 
     for name, intent in [

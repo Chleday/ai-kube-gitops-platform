@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install pytest
-      - run: python3 -m py_compile agent/gitops_agent.py agent/list_apps.py
-      - run: pytest -q tests/test_agent.py
+      - run: pip install -r agent/requirements.txt
+      - run: python3 -m py_compile agent/gitops_agent.py agent/list_apps.py agent/web_ui.py
+      - run: pytest -q tests/test_agent.py tests/test_agent_llm.py tests/test_agent_web.py
       - run: python3 agent/gitops_agent.py ask "yaml 검사해줘"
