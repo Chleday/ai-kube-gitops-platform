@@ -1,0 +1,12 @@
+.env
+*.env
+kubeconfig
+*.kubeconfig
+*.key
+*.pem
+*.crt
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+.pytest_cache/
